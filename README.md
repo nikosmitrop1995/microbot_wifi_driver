@@ -16,9 +16,9 @@ Open a terminal, navigate to your preferable directory using `cd` and download t
 
 In my case I'm going to create a folder named `microBot` inside `Projects` and clone the repo there, so:
 ```
-cd ~/
 mkdir -p ~/Projects/microBot
-git clone git@github.com:nikosmitrop1995/microbot_wifi_driver.git
+cd ~/Projects/microBot
+git clone git clone git@github.com:nikosmitrop1995/microbot_wifi_driver.git
 ```
 ### Open VScode and finish setup
 
