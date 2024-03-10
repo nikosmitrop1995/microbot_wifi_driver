@@ -16,8 +16,8 @@
 
 #include <std_msgs/msg/u_int32.h>
 
-#define SSID 
-#define PASSWORD 
+#define SSID "SSID_NAME"
+#define PASSWORD "PASSWORD"
 
 // Define BUILTIN LED PIN
 #define LED_PIN LED_BUILTIN
