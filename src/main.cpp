@@ -14,10 +14,11 @@
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
 
-#include <std_msgs/msg/u_int32.h>
+// #include <std_msgs/msg/u_int32.h>
+#include <std_msgs/msg/float32.h>
 
-#define SSID "SSID_NAME"
-#define PASSWORD "PASSWORD"
+#define SSID "C3_805"
+#define PASSWORD "nikolakis1995"
 
 // Define BUILTIN LED PIN
 #define LED_PIN LED_BUILTIN
@@ -32,11 +33,14 @@ rclc_support_t support;
 rcl_allocator_t allocator;
 
 // subscriber
-std_msgs__msg__UInt32 msg;
-rcl_subscription_t subscriber;
+// std_msgs__msg__UInt32 msg;
+std_msgs__msg__Float32 msg;
+// rcl_subscription_t subscriber;
+rcl_subscription_t subscriber_1;
+rcl_subscription_t subscriber_2;
 rclc_executor_t executor_sub;
 
-void set_motor_pwm(uint8_t pwm_fwd_1, uint8_t pwm_rev_1, uint8_t pwm_fwd_2, uint8_t pwm_rev_2);
+// void set_motor_pwm(uint8_t pwm_fwd_1, uint8_t pwm_rev_1, uint8_t pwm_fwd_2, uint8_t pwm_rev_2);
 
 #define RCCHECK(fn)              \
   {                              \
@@ -68,31 +72,73 @@ void error_loop()
 }
 
 /**
+ * @brief subscription callback executed when receiving a message
+ *
+ * @param msgin
+ */
+void subscriber_callback_1(const void *msgin)
+{
+  const std_msgs__msg__Float32 *msg = (const std_msgs__msg__Float32 *)msgin;
+  float wheel_vel = msg->data;
+  if (wheel_vel > 0)
+  {
+    analogWrite(MOT_AIN1_FWD, (int) 255 * wheel_vel/25.08361);
+    analogWrite(MOT_AIN2_REV, 0);
+  }
+  else
+  {
+    analogWrite(MOT_AIN1_FWD, 0);
+    analogWrite(MOT_AIN2_REV, (int) 255 * wheel_vel/25.08361);
+  }
+}
+
+/**
+ * @brief subscription callback executed when receiving a message
+ *
+ * @param msgin
+ */
+void subscriber_callback_2(const void *msgin)
+{
+  const std_msgs__msg__Float32 *msg = (const std_msgs__msg__Float32 *)msgin;
+  float wheel_vel = msg->data;
+  if (wheel_vel > 0)
+  {
+    analogWrite(MOT_BIN1_FWD, (int) 255 * wheel_vel/25.08361);
+    analogWrite(MOT_BIN2_REV, 0);
+  }
+  else
+  {
+    analogWrite(MOT_BIN1_FWD, 0);
+    analogWrite(MOT_BIN2_REV, (int) 255 * wheel_vel/25.08361);
+  }
+}
+
+/**
  * @brief subscription callback executed at receiving a message
  *
  * @param msgin
  */
-void subscriber_callback(const void *msgin)
-{
-  const std_msgs__msg__UInt32 *msg = (const std_msgs__msg__UInt32 *)msgin;
-  uint8_t pwm_fwd_1,pwm_rev_1,pwm_fwd_2,pwm_rev_2;
-  pwm_fwd_1 = msg->data >> 24;
-  pwm_rev_1 = (msg->data & 0x00FF0000) >> 16;
-  pwm_fwd_2 = (msg->data & 0x0000FF00) >> 8;
-  pwm_rev_2 = (msg->data & 0x000000FF);
+// void subscriber_callback(const void *msgin)
+// {
+//   const std_msgs__msg__UInt32 *msg = (const std_msgs__msg__UInt32 *)msgin;
+//   uint8_t pwm_fwd_1,pwm_rev_1,pwm_fwd_2,pwm_rev_2;
+//   pwm_fwd_1 = msg->data >> 24;
+//   pwm_rev_1 = (msg->data & 0x00FF0000) >> 16;
+//   pwm_fwd_2 = (msg->data & 0x0000FF00) >> 8;
+//   pwm_rev_2 = (msg->data & 0x000000FF);
 
-  // (condition) ? (true exec):(false exec)
-  digitalWrite(LED_PIN, ( pwm_fwd_2 == 118) ? LOW : HIGH);
-  set_motor_pwm(pwm_fwd_1,pwm_rev_1,pwm_fwd_2,pwm_rev_2);
-}
+//   // (condition) ? (true exec):(false exec)
+//   digitalWrite(LED_PIN, ( pwm_fwd_2 == 118) ? LOW : HIGH);
+//   set_motor_pwm(pwm_fwd_1,pwm_rev_1,pwm_fwd_2,pwm_rev_2);
+// }
 
-void set_motor_pwm(uint8_t pwm_fwd_1, uint8_t pwm_rev_1, uint8_t pwm_fwd_2, uint8_t pwm_rev_2){
-  // Set motor directions
-  analogWrite(MOT_AIN1_FWD, pwm_fwd_1);
-  analogWrite(MOT_AIN2_REV, pwm_rev_1);
-  analogWrite(MOT_BIN1_FWD, pwm_fwd_2);
-  analogWrite(MOT_BIN2_REV, pwm_rev_2);
-}
+// void set_motor_pwm(uint8_t pwm_fwd_1, uint8_t pwm_rev_1, uint8_t pwm_fwd_2, uint8_t pwm_rev_2){
+//   // Set motor directions
+//   analogWrite(MOT_AIN1_FWD, pwm_fwd_1);
+//   analogWrite(MOT_AIN2_REV, pwm_rev_1);
+//   analogWrite(MOT_BIN1_FWD, pwm_fwd_2);
+//   analogWrite(MOT_BIN2_REV, pwm_rev_2);
+// }
 
 void setup()
 {
@@ -137,16 +183,42 @@ void setup()
   RCCHECK(rclc_node_init_default(&node, "micro_ros_platformio_node", "", &support));
 
   // Initialize a ROS subscriber with the name "micro_ros_platformio_subscriber_node" to Subscribe(Receive) UInt32 messages
-  RCCHECK(rclc_subscription_init_default(
-    &subscriber,
+  // RCCHECK(rclc_subscription_init_default
+  // (
+  //   &subscriber,
+  //   &node,
+  //   ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, UInt32),
+  //   "wheel_velocity")
+  // );
+
+  // Create 1st subscriber
+  RCCHECK(rclc_subscription_init_default
+  (
+    &subscriber_1,
     &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, UInt32),
-    "wheel_velocity"));
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
+    "/left_wheel_vel")
+  );
+
+  // Create 2nd subscriber
+  RCCHECK(rclc_subscription_init_default
+  (
+    &subscriber_2,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
+    "/right_wheel_vel")
+  );
+
+  // create executor
+  RCCHECK(rclc_executor_init(&executor_sub, &support.context, 2, &allocator));
+  RCCHECK(rclc_executor_add_subscription(&executor_sub, &subscriber_1, &msg, &subscriber_callback_1, ON_NEW_DATA));
+  RCCHECK(rclc_executor_add_subscription(&executor_sub, &subscriber_2, &msg, &subscriber_callback_2, ON_NEW_DATA));
+
 
   // Initialize an executor that will manage the execution of all the ROS entities (publishers, subscribers, services, timers)
-  RCCHECK(rclc_executor_init(&executor_sub, &support.context, 1, &allocator));
+  // RCCHECK(rclc_executor_init(&executor_sub, &support.context, 1, &allocator));
   // Add subscription executor (execute callback when new data received)
-  RCCHECK(rclc_executor_add_subscription(&executor_sub, &subscriber, &msg, &subscriber_callback, ON_NEW_DATA));
+  // RCCHECK(rclc_executor_add_subscription(&executor_sub, &subscriber, &msg, &subscriber_callback, ON_NEW_DATA));
 }
 
 void loop()
