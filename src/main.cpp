@@ -13,34 +13,35 @@
 #include <rcl/error_handling.h>
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
+#include <geometry_msgs/msg/twist.h>
 
-// #include <std_msgs/msg/u_int32.h>
-#include <std_msgs/msg/float32.h>
-
-#define SSID "C3_805"
-#define PASSWORD "nikolakis1995"
-
-// Define BUILTIN LED PIN
-#define LED_PIN LED_BUILTIN
 // Define the control inputs
 #define MOT_AIN1_FWD 1
 #define MOT_AIN2_REV 2
 #define MOT_BIN1_FWD 3
 #define MOT_BIN2_REV 4
 
+#define LOWER_PWM_VALUE 80
+#define VEHICLE_MAX_SPEED 25.08361
+
+// // Define robot length and wheel radius  
+// #define R 0.0598
+// #define L 0.109
+
+#define SSID "C3_805"
+#define PASSWORD "nikolakis1995"
+
 rcl_node_t node;
 rclc_support_t support;
 rcl_allocator_t allocator;
 
-// subscriber
-// std_msgs__msg__UInt32 msg;
-std_msgs__msg__Float32 msg;
-// rcl_subscription_t subscriber;
-rcl_subscription_t subscriber_1;
-rcl_subscription_t subscriber_2;
+// Message
+geometry_msgs__msg__Twist msg;
+
+// Subscriber
+rcl_subscription_t cmd_vel_subscriber;
 rclc_executor_t executor_sub;
 
-// void set_motor_pwm(uint8_t pwm_fwd_1, uint8_t pwm_rev_1, uint8_t pwm_fwd_2, uint8_t pwm_rev_2);
 
 #define RCCHECK(fn)              \
   {                              \
@@ -59,92 +60,99 @@ rclc_executor_t executor_sub;
   }
 
 /**
- * @brief loop to indicate error with blinking LED
+ * @brief loop to indicate error
  *
  */
-void error_loop()
-{
-  while (1)
-  {
-    digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+// Error handle loop
+void error_loop() {
+  while(1) {
     delay(100);
   }
 }
 
 /**
+ * @brief Convert the commanded velocity to PWM.
+ *
+ * @param[in] x the commanded velocity.
+ * 
+ * @return the PWM value. 
+ */
+int velocity_2_pwm(float x)
+{
+  int y;
+  int a;
+  int b = LOWER_PWM_VALUE;
+  a = (225 - LOWER_PWM_VALUE) / VEHICLE_MAX_SPEED;
+  y = a*x + b;
+  return y;
+}
+
+/**
  * @brief subscription callback executed when receiving a message
  *
  * @param msgin
  */
-void subscriber_callback_1(const void *msgin)
+void cmd_vel_callback(const void *msgin)
 {
-  const std_msgs__msg__Float32 *msg = (const std_msgs__msg__Float32 *)msgin;
-  float wheel_vel = msg->data;
-  if (wheel_vel > 0)
+  float R = 0.0598;
+  float L = 0.109;
+  const geometry_msgs__msg__Twist *msg = (const geometry_msgs__msg__Twist *)msgin;
+  float ux = msg->linear.x;
+  float w = - msg->angular.z;
+
+  // Left wheel velocity
+  // υL = (2 * ux + ω*L)/(2*R)
+  // Right wheel velocity
+  // υR = (2 * ux - ω*L)/(2*R)
+  // ux is linear.x
+  // ω is angular.z
+  // L is the distance between the wheels
+  // R is the radius of the wheel
+  
+  // Left wheel velocity
+  float uL = ((2 * ux) + (w * L)) / (2 * R);
+  // Right wheel velocity
+  float uR = ((2 * ux) - (w * L)) / (2 * R);
+  int pwm_left;
+  int pwm_right;
+
+  pwm_left = velocity_2_pwm(abs(uL));
+  pwm_right = velocity_2_pwm(abs(uR));
+  
+  if (uL > 0)
   {
-    analogWrite(MOT_AIN1_FWD, (int) 255 * wheel_vel/25.08361);
+    analogWrite(MOT_AIN1_FWD, pwm_left);
+    analogWrite(MOT_AIN2_REV, 0);
+  }
+  else if (uL == 0){
+    analogWrite(MOT_AIN1_FWD, 0);
     analogWrite(MOT_AIN2_REV, 0);
   }
   else
   {
     analogWrite(MOT_AIN1_FWD, 0);
-    analogWrite(MOT_AIN2_REV, (int) 255 * wheel_vel/25.08361);
+    analogWrite(MOT_AIN2_REV, pwm_left);
   }
-}
 
-/**
- * @brief subscription callback executed when receiving a message
- *
- * @param msgin
- */
-void subscriber_callback_2(const void *msgin)
-{
-  const std_msgs__msg__Float32 *msg = (const std_msgs__msg__Float32 *)msgin;
-  float wheel_vel = msg->data;
-  if (wheel_vel > 0)
+  if (uR > 0)
   {
-    analogWrite(MOT_BIN1_FWD, (int) 255 * wheel_vel/25.08361);
+    analogWrite(MOT_BIN1_FWD, pwm_right);
+    analogWrite(MOT_BIN2_REV, 0);
+  }
+  else if (uR == 0)
+  {
+    analogWrite(MOT_BIN1_FWD, 0);
     analogWrite(MOT_BIN2_REV, 0);
   }
   else
   {
     analogWrite(MOT_BIN1_FWD, 0);
-    analogWrite(MOT_BIN2_REV, (int) 255 * wheel_vel/25.08361);
+    analogWrite(MOT_BIN2_REV, pwm_right);
   }
 }
 
-/**
- * @brief subscription callback executed at receiving a message
- *
- * @param msgin
- */
-// void subscriber_callback(const void *msgin)
-// {
-//   const std_msgs__msg__UInt32 *msg = (const std_msgs__msg__UInt32 *)msgin;
-//   uint8_t pwm_fwd_1,pwm_rev_1,pwm_fwd_2,pwm_rev_2;
-//   pwm_fwd_1 = msg->data >> 24;
-//   pwm_rev_1 = (msg->data & 0x00FF0000) >> 16;
-//   pwm_fwd_2 = (msg->data & 0x0000FF00) >> 8;
-//   pwm_rev_2 = (msg->data & 0x000000FF);
-
-//   // (condition) ? (true exec):(false exec)
-//   digitalWrite(LED_PIN, ( pwm_fwd_2 == 118) ? LOW : HIGH);
-//   set_motor_pwm(pwm_fwd_1,pwm_rev_1,pwm_fwd_2,pwm_rev_2);
-// }
-
-// void set_motor_pwm(uint8_t pwm_fwd_1, uint8_t pwm_rev_1, uint8_t pwm_fwd_2, uint8_t pwm_rev_2){
-//   // Set motor directions
-//   analogWrite(MOT_AIN1_FWD, pwm_fwd_1);
-//   analogWrite(MOT_AIN2_REV, pwm_rev_1);
-//   analogWrite(MOT_BIN1_FWD, pwm_fwd_2);
-//   analogWrite(MOT_BIN2_REV, pwm_rev_2);
-// }
-
 void setup()
 {
-  // Initialize the LED_PIN
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH);
 
   // Set all the motor control inputs to OUTPUT
   pinMode(MOT_AIN1_FWD, OUTPUT);
@@ -170,8 +178,11 @@ void setup()
   // Configure Micro-ROS library to use Wi-Fi for communication
   set_microros_wifi_transports(ssid, psk, agent_ip, agent_port);
 
-  // Allow some time for everything to start properly
+  // Configure serial transport
+  // Serial.begin(115200);
+  // set_microros_serial_transports(Serial);
   delay(2000);
+
 
   // Get the default memory allocator provided by rcl
   allocator = rcl_get_default_allocator();
@@ -182,47 +193,21 @@ void setup()
   // Initialize a ROS node with the name "micro_ros_platformio_node"
   RCCHECK(rclc_node_init_default(&node, "micro_ros_platformio_node", "", &support));
 
-  // Initialize a ROS subscriber with the name "micro_ros_platformio_subscriber_node" to Subscribe(Receive) UInt32 messages
-  // RCCHECK(rclc_subscription_init_default
-  // (
-  //   &subscriber,
-  //   &node,
-  //   ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, UInt32),
-  //   "wheel_velocity")
-  // );
-
-  // Create 1st subscriber
+  // Create Subscriber
   RCCHECK(rclc_subscription_init_default
   (
-    &subscriber_1,
+    &cmd_vel_subscriber,
     &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
-    "/left_wheel_vel")
+    ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
+    "/cmd_vel")
   );
-
-  // Create 2nd subscriber
-  RCCHECK(rclc_subscription_init_default
-  (
-    &subscriber_2,
-    &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
-    "/right_wheel_vel")
-  );
-
-  // create executor
-  RCCHECK(rclc_executor_init(&executor_sub, &support.context, 2, &allocator));
-  RCCHECK(rclc_executor_add_subscription(&executor_sub, &subscriber_1, &msg, &subscriber_callback_1, ON_NEW_DATA));
-  RCCHECK(rclc_executor_add_subscription(&executor_sub, &subscriber_2, &msg, &subscriber_callback_2, ON_NEW_DATA));
-
 
   // Initialize an executor that will manage the execution of all the ROS entities (publishers, subscribers, services, timers)
-  // RCCHECK(rclc_executor_init(&executor_sub, &support.context, 1, &allocator));
+  RCCHECK(rclc_executor_init(&executor_sub, &support.context, 1, &allocator));
   // Add subscription executor (execute callback when new data received)
-  // RCCHECK(rclc_executor_add_subscription(&executor_sub, &subscriber, &msg, &subscriber_callback, ON_NEW_DATA));
+  RCCHECK(rclc_executor_add_subscription(&executor_sub, &cmd_vel_subscriber, &msg, &cmd_vel_callback, ON_NEW_DATA));
 }
 
-void loop()
-{
-  // delay(10);
-  RCCHECK(rclc_executor_spin_some(&executor_sub, RCL_MS_TO_NS(100)));
+void loop() {
+  rclc_executor_spin_some(&executor_sub, RCL_MS_TO_NS(1));
 }
