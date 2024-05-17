@@ -28,8 +28,8 @@
 // #define R 0.0598
 // #define L 0.109
 
-#define SSID "C3_805"
-#define PASSWORD "nikolakis1995"
+#define SSID ""
+#define PASSWORD ""
 
 rcl_node_t node;
 rclc_support_t support;
