@@ -16,10 +16,11 @@
 #include <geometry_msgs/msg/twist.h>
 
 // Define the control inputs
-#define MOT_AIN1_FWD 1
-#define MOT_AIN2_REV 2
-#define MOT_BIN1_FWD 3
-#define MOT_BIN2_REV 4
+#define MOT_AIN1_FWD A1
+#define MOT_AIN2_REV A2
+#define MOT_BIN1_FWD A3
+#define MOT_BIN2_REV A4
+#define SLP D5
 
 #define LOWER_PWM_VALUE 80
 #define VEHICLE_MAX_SPEED 25.08361
@@ -159,15 +160,17 @@ void setup()
   pinMode(MOT_AIN2_REV, OUTPUT);
   pinMode(MOT_BIN1_FWD, OUTPUT);
   pinMode(MOT_BIN2_REV, OUTPUT);
+  pinMode(SLP, OUTPUT);
 
   // Turn off motors - Initial state
   analogWrite(MOT_AIN1_FWD, 0);
   analogWrite(MOT_AIN2_REV, 0);
   analogWrite(MOT_BIN1_FWD, 0);
   analogWrite(MOT_BIN2_REV, 0);
+  digitalWrite(SLP, HIGH);
 
   // Declare Agent's IP
-  IPAddress agent_ip(192, 168, 70, 178);
+  IPAddress agent_ip(0, 0, 0, 0);
   // Declare Agent's Port
   size_t agent_port = 8888;
 
