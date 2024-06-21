@@ -13,7 +13,8 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name, ['platformio.ini']),
-        (os.path.join('share', package_name, 'src'), glob('src/*.cpp'))
+        (os.path.join('share', package_name, 'src'), glob('src/*.cpp')),
+        (os.path.join('share', package_name, 'include'), glob('include/*.h'))
     ],
     install_requires=['setuptools'],
     zip_safe=True,
