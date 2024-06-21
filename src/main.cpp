@@ -12,9 +12,9 @@ void setup()
 
   // Allocate memory for uros object
   uros = new URos;
-  char ssid[] = "C3_805";
-  char psk[] = "nikolakis1995";
-  std::stringstream ip_address("192.168.70.178");
+  char ssid[] = "";
+  char psk[] = "";
+  std::stringstream ip_address("192.168.0.0");
   uint16_t port = 8888;
   uros->connect_to_wifi(ssid, psk, ip_address, port);
 
